@@ -1,4 +1,4 @@
-import Mathlib
+import Nsode.Basic
 
 /-! Convergence proof for Euler method -/
 
@@ -55,3 +55,17 @@ theorem local_error_bound {n : ℕ} {f : ODE n} {φ : ℝ → Rn n} {M t h : ℝ
   norm_num at hrem
   convert hrem using 2
   abel
+
+/- ODE theory for constructing the solution -/
+theorem exists_IsSolutionOnInterval {n : ℕ} {f : ODE n} {tmin tmax : ℝ} {t₀ : Set.Icc tmin tmax}
+    {y₀ : Rn n} {a r L K : NNReal}
+    (hmono : tmin < tmax) (hPL : IsPicardLindelof f t₀ y₀ a r L K) :
+    ∃ φ : ℝ → Rn n, φ t₀ = y₀ ∧ IsSolutionOnInterval f φ tmin tmax := by
+  have hy₀ : y₀ ∈ Metric.closedBall y₀ ↑r := by simp [Metric.mem_closedBall]
+  obtain ⟨φ, hinit, hderiv⟩ :=
+    hPL.exists_eq_forall_mem_Icc_hasDerivWithinAt (x := y₀) hy₀
+  use φ, hinit
+  intro t ht
+  have hUD : UniqueDiffWithinAt ℝ (Set.Icc tmin tmax) t :=
+    (uniqueDiffOn_Icc hmono) t ht
+  exact (hderiv t ht).derivWithin hUD
