@@ -72,3 +72,71 @@ theorem ode_contDiffOn_two {n : ℕ} {s : Set ℝ} (hs : UniqueDiffOn ℝ s)
       rw [← hAeq]
       exact hAcd
     · exact A_is_Fderiv
+
+/- If f is C¹ and φ solves the ODE y' = f(t,y), then φ is C² -/
+theorem ode_contDiffOn_two_na {n : ℕ} {s : Set ℝ} (hs : UniqueDiffOn ℝ s)
+    {f : ℝ → Rn n → Rn n} {φ : ℝ → Rn n} (hf : ContDiff ℝ 1 f.uncurry)
+    (hsol : ∀ t ∈ s, HasDerivWithinAt φ (f t (φ t)) s t) :
+    ContDiffOn ℝ (2 : ℕ∞) φ s := by
+  /- A = Dφ is the Fréchet derivative of φ, given by Dφ(t)(h) = hf(t,φ(t)) -/
+  let g : ℝ → ℝ × Rn n := fun t ↦ (t, φ t)
+  let rhs : ℝ → Rn n := fun t ↦ f t (φ t)
+  let A : ℝ → (ℝ →L[ℝ] Rn n) :=
+    fun t ↦ ContinuousLinearMap.toSpanSingleton ℝ (rhs t)
+  let CLMtoCLE : Rn n ≃L[ℝ] (ℝ →L[ℝ] Rn n) := ContinuousLinearMap.toSpanSingletonCLE
+  have hAeq : ⇑CLMtoCLE ∘ rhs = A := by
+    funext t
+    simp [A, CLMtoCLE, toSpanSingletonCLE_apply]
+  have A_is_Fderiv : ∀ x ∈ s, HasFDerivWithinAt φ (A x) s x := by
+    intro t ht
+    simpa [A] using (hsol t ht).hasFDerivWithinAt
+  /-
+  -- Prove that the solution φ is C¹ by proving that A is its Fréchet derivative
+  -- and that A is C⁰ because A = f(φ(t)) where both f and φ are C⁰
+  -/
+  have hφ₁ : ContDiffOn ℝ 1 φ s := by
+    change ContDiffOn ℝ (0 + 1) φ s
+    rw [contDiffOn_succ_iff_hasFDerivWithinAt_of_uniqueDiffOn hs]
+    constructor
+    · intro h; cases h
+    · use A
+      constructor
+      · -- need to show that A is C⁰
+        apply contDiffOn_zero.mpr
+        have hφcont : ContinuousOn φ s := by intro t ht; exact (hsol t ht).continuousWithinAt
+        have hfOn : ContinuousOn f.uncurry Set.univ := 
+          hf.continuous.continuousOn
+        have hgcont : ContinuousOn g s := by simpa [g] using continuousOn_id.prodMk hφcont
+        have hcomp : ContinuousOn rhs s := hfOn.comp hgcont (by intro x hx; simp)
+        have hCLEOn : ContinuousOn ⇑CLMtoCLE Set.univ :=
+          (ContinuousLinearEquiv.continuous ContinuousLinearMap.toSpanSingletonCLE).continuousOn
+        have hAcont : ContinuousOn (⇑CLMtoCLE ∘ rhs) s := 
+          hCLEOn.comp hcomp (by intro x hx; simp)
+        rw [← hAeq]
+        exact hAcont
+      · exact A_is_Fderiv
+  /-
+  -- Prove that the solution φ is C² by proving that A is its Fréchet derivative
+  -- and that A is C¹ because A = f(φ(t)) where both f and φ are C¹ 
+  -- (the latter from the previous step)
+  -/
+  change ContDiffOn ℝ (1 + 1) φ s
+  rw [contDiffOn_succ_iff_hasFDerivWithinAt_of_uniqueDiffOn hs]
+  constructor
+  · intro h; cases h
+  · use A; constructor
+    · -- need to show that A is C¹
+      have hrhs : ContDiffOn ℝ 1 rhs s := by
+        have hfOn : ContDiffOn ℝ 1 f.uncurry Set.univ := hf.contDiffOn
+        have hmaps : Set.MapsTo g s Set.univ := by intro x hx; simp
+        have hgcdo : ContDiffOn ℝ 1 g s := by simpa [g] using contDiffOn_id.prodMk hφ₁
+        have hcomp : ContDiffOn ℝ 1 (f.uncurry ∘ g) s := hfOn.comp hgcdo hmaps
+        change ContDiffOn ℝ 1 (f.uncurry ∘ g) s
+        exact hcomp
+      have hCLE : ContDiff ℝ 1 ⇑CLMtoCLE := ContinuousLinearEquiv.contDiff CLMtoCLE
+      have hCLEOn : ContDiffOn ℝ 1 ⇑CLMtoCLE Set.univ := hCLE.contDiffOn
+      have hAcd : ContDiffOn ℝ 1 (⇑CLMtoCLE ∘ rhs) s := by
+        simpa using hCLEOn.comp hrhs (by intro x hx; simp)
+      rw [← hAeq]
+      exact hAcd
+    · exact A_is_Fderiv
