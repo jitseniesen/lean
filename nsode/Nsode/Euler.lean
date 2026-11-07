@@ -3,22 +3,22 @@ import Nsode.ODETheory
 
 /-! Convergence proof for Euler method -/
 
-/- One step of the Euler method for y' = f(t,y) starting from t and h with stepsize h -/
+-- One step of the Euler method for y' = f(t,y) starting from t and h with stepsize h
 def euler_step {n : ℕ} (f : ODE n) (h t : ℝ) (y : Rn n) : Rn n :=
   y + h • f t y
 
-/- The infinite sequence produced by the Euler method -/ 
+-- The infinite sequence produced by the Euler method
 def euler_method {n : ℕ} (f : ODE n) (t₀ h : ℝ) (y₀ : Rn n) : ℕ → Rn n
   | 0 => y₀
   | k + 1 => euler_step f h (t₀ + h * k) (euler_method f t₀ h y₀ k)
 
-/- Local error of Euler's method at a time t given the solution -/
+-- Local error of Euler's method at a time t given the solution
 def local_error {n : ℕ} (f : ODE n) (φ : ℝ → Rn n) (h : ℝ) : ℝ → Rn n :=
   fun t => φ (t + h) - euler_step f h t (φ t)
 
-/- Rewrite local error using solution without referring to ODE -/
+-- Rewrite local error using solution without referring to ODE
 theorem local_error_eq_sub_derivWithin {n : ℕ} {f : ODE n} {φ : ℝ → Rn n} {t h : ℝ}
-    (hh : 0 < h) (hsol : IsSolutionOnInterval f φ t (t + h)) : 
+    (hh : 0 < h) (hsol : IsSolutionOnInterval f φ t (t + h)) :
     local_error f φ h t = φ (t + h) - φ t - h • derivWithin φ (Set.Icc t (t + h)) t := by
   let I := Set.Icc t (t + h)
   unfold local_error euler_step
@@ -29,14 +29,14 @@ theorem local_error_eq_sub_derivWithin {n : ℕ} {f : ODE n} {φ : ℝ → Rn n}
   rw [← hφ]
   abel
 
-/- Explicit form of first order Taylor polynomial in an interval -/
+-- Explicit form of first order Taylor polynomial in an interval
 lemma taylor_within_eval_one {n : ℕ} (φ : ℝ → Rn n) (a b x : ℝ) :
     taylorWithinEval φ 1 (Set.Icc a b) a x = φ a + (x - a) • derivWithin φ (Set.Icc a b) a := by
   rw [taylorWithinEval_succ]
   simp [taylor_within_zero_eval]
 
-/- Bound for local error on interval [a,b] assuming solution is given and nice -/
-/- The constant M can be sharpened to M / 2 -/
+-- Bound for local error on interval [a,b] assuming solution is given and nice
+-- The constant M can be sharpened to M / 2
 theorem local_error_bound' {n : ℕ} {f : ODE n} {φ : ℝ → Rn n} {M t h : ℝ}
     (hsol : IsSolutionOnInterval f φ t (t + h))
     (hφ : ContDiffOn ℝ 2 φ (Set.Icc t (t + h))) (hh : 0 < h)
@@ -52,7 +52,29 @@ theorem local_error_bound' {n : ℕ} {f : ODE n} {φ : ℝ → Rn n} {M t h : �
   convert hrem using 2
   abel
 
-/- Local error of Euler is O(h^2) if the rhs of the ODE is C^2 -/
+-- Lemma for proving the theorem below: equality of second iterated derivatives on nested intervals
+lemma iteratedDerivWithin_two_Icc_eq {n : ℕ} (φ : ℝ → Rn n) {a b c x : ℝ}
+    (hab : a < b) (hbc : b ≤ c) (hφ : ContDiffOn ℝ 2 φ (Set.Icc a c)) (hx : x ∈ Set.Icc a b) :
+    iteratedDerivWithin 2 φ (Set.Icc a b) x = iteratedDerivWithin 2 φ (Set.Icc a c) x := by
+  let I' := Set.Icc a b
+  let I := Set.Icc a c
+  have hIcc : I' ⊆ I := Set.Icc_subset_Icc_right hbc
+  have hu : UniqueDiffOn ℝ (Set.Icc a b) := uniqueDiffOn_Icc hab
+  have hu' : UniqueDiffOn ℝ (Set.Icc a c) := uniqueDiffOn_Icc (lt_of_lt_of_le hab hbc)
+  have hφdiff : DifferentiableOn ℝ φ (Set.Icc a c) := hφ.differentiableOn (by norm_num)
+  have hderiv : ∀ y ∈ I', derivWithin φ I' y = derivWithin φ I y := by
+    intro y hy
+    exact derivWithin_subset hIcc (hu y hy) (hφdiff y (hIcc hy))
+  have hderivdiff : DifferentiableOn ℝ (derivWithin φ I) I := by
+    simpa only [iteratedDerivWithin_one] using
+      hφ.differentiableOn_iteratedDerivWithin (by norm_num : (1 : ℕ) < (2 : WithTop ℕ∞)) hu'
+  have hsecond : derivWithin (derivWithin φ I') I' x = derivWithin (derivWithin φ I) I x := by
+    rw [derivWithin_congr hderiv (hderiv x hx)]
+    exact derivWithin_subset hIcc (hu x hx) (hderivdiff x (hIcc hx))
+  simpa only [show (2 : ℕ) = 1 + 1 by rfl, iteratedDerivWithin_succ',
+    iteratedDerivWithin_one, iteratedDerivWithin_zero] using hsecond
+
+-- Local error of Euler is O(h^2) if the rhs of the ODE is C^2
 theorem local_error_bound_uniform {n : ℕ} {f : ODE n} {φ : ℝ → Rn n} {t hmax : ℝ}
     (hf : ContDiff ℝ 1 f.uncurry) (hpos : 0 < hmax) (hsol : IsSolutionOnInterval f φ t (t + hmax)) :
     ∃ M ≥ 0, ∀ h, 0 < h → h ≤ hmax → ‖local_error f φ h t‖ ≤ M * h^2 := by
@@ -64,11 +86,16 @@ theorem local_error_bound_uniform {n : ℕ} {f : ODE n} {φ : ℝ → Rn n} {t h
   use M, hMpos
   intro h hhpos hhbnd
   let I' := Set.Icc t (t + h)
+  have hI' : I' ⊆ I := by apply Set.Icc_subset_Icc_right (by linarith)
   have hsol' : IsSolutionOnInterval f φ t (t + h) := by
     intro s hs'
-    have hI' : I' ⊆ I := by apply Set.Icc_subset_Icc_right (by linarith)
     have hs : s ∈ I := hI' hs'
     exact (hsol s hs).mono hI'
-  have hφ' : ContDiffOn ℝ 2 φ (Set.Icc t (t + h)) := sorry
-  have hM' : ∀ s ∈ Set.Icc t (t + h), ‖iteratedDerivWithin 2 φ (Set.Icc t (t + h)) s‖ ≤ M := sorry
+  have hφ' : ContDiffOn ℝ 2 φ (Set.Icc t (t + h)) := by
+    apply hφC2.mono
+    exact hI'
+  have hM' : ∀ s ∈ Set.Icc t (t + h), ‖iteratedDerivWithin 2 φ (Set.Icc t (t + h)) s‖ ≤ M := by
+    intro s hs'
+    rw [iteratedDerivWithin_two_Icc_eq φ (by linarith) (by linarith) hφC2 hs']
+    exact hMbnd s (hI' hs')
   apply local_error_bound' hsol' hφ' hhpos hM'
