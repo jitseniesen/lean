@@ -4,24 +4,27 @@ import Nsode.ODETheory
 /-! Convergence proof for Euler method -/
 
 -- One step of the Euler method for y' = f(t,y) starting from t and h with stepsize h
-def euler_step {n : ℕ} (f : ODE n) (h t : ℝ) (y : Rn n) : Rn n :=
-  y + h • f t y
+def euler : Increment n :=
+  fun f t y _ => f t y
 
 -- The infinite sequence produced by the Euler method
-def euler_method {n : ℕ} (f : ODE n) (t₀ h : ℝ) (y₀ : Rn n) : ℕ → Rn n
-  | 0 => y₀
-  | k + 1 => euler_step f h (t₀ + h * k) (euler_method f t₀ h y₀ k)
+def euler_method {n : ℕ} (f : ODE n) (t₀ h : ℝ) (y₀ : Rn n) : ℕ → Rn n :=
+  numerical_method euler f t₀ y₀ h
 
--- Local error of Euler's method at a time t given the solution
-def local_error {n : ℕ} (f : ODE n) (φ : ℝ → Rn n) (h : ℝ) : ℝ → Rn n :=
-  fun t => φ (t + h) - euler_step f h t (φ t)
+-- Take one step of a numerical method
+lemma numerical_method_one {n : ℕ} (Φ : Increment n) (f : ODE n) (t : ℝ) (y : Rn n) (h : ℝ) :
+    numerical_method Φ f t y h 1 = y + h • Φ f t y h := by
+  simp [numerical_method]
 
 -- Rewrite local error using solution without referring to ODE
 theorem local_error_eq_sub_derivWithin {n : ℕ} {f : ODE n} {φ : ℝ → Rn n} {t h : ℝ}
     (hh : 0 < h) (hsol : IsSolutionOnInterval f φ t (t + h)) :
-    local_error f φ h t = φ (t + h) - φ t - h • derivWithin φ (Set.Icc t (t + h)) t := by
+    local_error euler f φ h t
+    = φ (t + h) - φ t - h • derivWithin φ (Set.Icc t (t + h)) t := by
   let I := Set.Icc t (t + h)
-  unfold local_error euler_step
+  unfold local_error
+  rw [numerical_method_one euler f t (φ t) h]
+  unfold euler
   have hineq : t < t + h := by simp [hh]
   have ht : t ∈ I := by simp [I, hh.le]
   have hunique : UniqueDiffOn ℝ I := uniqueDiffOn_Icc hineq
@@ -41,7 +44,7 @@ theorem local_error_bound' {n : ℕ} {f : ODE n} {φ : ℝ → Rn n} {M t h : �
     (hsol : IsSolutionOnInterval f φ t (t + h))
     (hφ : ContDiffOn ℝ 2 φ (Set.Icc t (t + h))) (hh : 0 < h)
     (hM : ∀ s ∈ Set.Icc t (t + h), ‖iteratedDerivWithin 2 φ (Set.Icc t (t + h)) s‖ ≤ M) :
-    ‖local_error f φ h t‖ ≤ M * h^2 := by
+    ‖local_error euler f φ h t‖ ≤ M * h^2 := by
   rw [local_error_eq_sub_derivWithin hh hsol]
   have hab : t ≤ t + h := by linarith
   have hx : t + h ∈ Set.Icc t (t + h) := by constructor <;> linarith
@@ -77,7 +80,7 @@ lemma iteratedDerivWithin_two_Icc_eq {n : ℕ} (φ : ℝ → Rn n) {a b c x : �
 -- Local error of Euler is O(h^2) if the rhs of the ODE is C^2
 theorem local_error_bound_uniform {n : ℕ} {f : ODE n} {φ : ℝ → Rn n} {t hmax : ℝ}
     (hf : ContDiff ℝ 1 f.uncurry) (hpos : 0 < hmax) (hsol : IsSolutionOnInterval f φ t (t + hmax)) :
-    ∃ M ≥ 0, ∀ h, 0 < h → h ≤ hmax → ‖local_error f φ h t‖ ≤ M * h^2 := by
+    ∃ M ≥ 0, ∀ h, 0 < h → h ≤ hmax → ‖local_error euler f φ h t‖ ≤ M * h^2 := by
   let I := Set.Icc t (t + hmax)
   have hI : UniqueDiffOn ℝ I := uniqueDiffOn_Icc (by linarith)
   have hφC2 := ode_contDiffOn_two hI hf hsol
