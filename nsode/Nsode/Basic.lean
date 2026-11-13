@@ -30,9 +30,8 @@ def numerical_method {n : ℕ} (Φ : Increment n) (f : ODE n) (t₀ : ℝ) (y₀
 -- Local error of some method at a time t given the solution
 def local_error {n : ℕ} (Φ : Increment n) (f : ODE n) (φ : ℝ → Rn n) (h : ℝ)
     : ℝ → Rn n :=
-  fun t => φ (t + h) - numerical_method Φ f t (φ t) h 1
+  fun t => numerical_method Φ f t (φ t) h 1 - φ (t + h)
 
--- Global error of some method at a fixed time t given the solution
-noncomputable def global_error {n : ℕ} (Φ : Increment n) (f : ODE n) (φ : ℝ → Rn n) (t₀ t : ℝ)
-    : ℝ → Rn n :=
-  fun h => φ t - numerical_method Φ f t₀ (φ t₀) h (Nat.floor ((t - t₀) / h))
+-- Global error of some method after k steps given the solution
+def global_error {n : ℕ} (Φ : Increment n) (f : ODE n) (φ : ℝ → Rn n) (t₀ h : ℝ) (k : ℕ) :=
+  numerical_method Φ f t₀ (φ t₀) h k - φ (t₀ + k * h)

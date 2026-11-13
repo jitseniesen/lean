@@ -20,7 +20,7 @@ lemma numerical_method_one {n : ℕ} (Φ : Increment n) (f : ODE n) (t : ℝ) (y
 theorem local_error_eq_sub_derivWithin {n : ℕ} {f : ODE n} {φ : ℝ → Rn n} {t h : ℝ}
     (hh : 0 < h) (hsol : IsSolutionOnInterval f φ t (t + h)) :
     local_error euler f φ h t
-    = φ (t + h) - φ t - h • derivWithin φ (Set.Icc t (t + h)) t := by
+    = φ t + h • derivWithin φ (Set.Icc t (t + h)) t - φ (t + h):= by
   let I := Set.Icc t (t + h)
   unfold local_error
   rw [numerical_method_one euler f t (φ t) h]
@@ -30,7 +30,6 @@ theorem local_error_eq_sub_derivWithin {n : ℕ} {f : ODE n} {φ : ℝ → Rn n}
   have hunique : UniqueDiffOn ℝ I := uniqueDiffOn_Icc hineq
   have hφ : derivWithin φ I t = f t (φ t) := (hsol t ht).derivWithin (hunique t ht)
   rw [← hφ]
-  abel
 
 -- Explicit form of first order Taylor polynomial in an interval
 lemma taylor_within_eval_one {n : ℕ} (φ : ℝ → Rn n) (a b x : ℝ) :
@@ -52,6 +51,7 @@ theorem local_error_bound' {n : ℕ} {f : ODE n} {φ : ℝ → Rn n} {M t h : �
   rw [taylor_within_eval_one] at hrem
   rw [show t + h - t = h by abel] at hrem
   norm_num at hrem
+  rw [← norm_neg]
   convert hrem using 2
   abel
 
